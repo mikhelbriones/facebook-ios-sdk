@@ -185,7 +185,7 @@ static BOOL _isConfigured = NO;
 {
   [self validateConfiguration];
   NSAssert(NSThread.isMainThread, @"FBSDKAppLink fetchDeferredAppLink: must be invoked from main thread.");
-
+  
   [self.appEventsConfigurationProvider loadAppEventsConfigurationWithBlock:^{
     if ([self.appEventsDropDeterminer shouldDropAppEvents]) {
       if (handler) {
@@ -194,19 +194,20 @@ static BOOL _isConfigured = NO;
       }
       return;
     }
-
+    
     if (@available(iOS 14.5, *)) {
       NSString *defaultAdvertiserID = @"00000000-0000-0000-0000-000000000000";
       BOOL isAdvertiserIDMissingOrDefault = !self.advertiserIDProvider.advertiserID
       || [self.advertiserIDProvider.advertiserID isEqualToString:defaultAdvertiserID];
-
+      NSLog(@"ISADVERTISER ID MISSING OR DEFAULT %@", self.advertiserIDProvider.advertiserID);
+      
       if (handler && isAdvertiserIDMissingOrDefault) {
         NSError *error = [[NSError alloc] initWithDomain:@"ATTrackingManager.AuthorizationStatus must be `authorized` for deferred deep linking to work. Read more at: https://developer.apple.com/documentation/apptrackingtransparency" code:-1 userInfo:nil];
         handler(nil, error);
         return;
       }
     }
-
+    
     // Deferred app links are only currently used for engagement ads, thus we consider the app to be an advertising one.
     // If this is considered for organic, non-ads scenarios, we'll need to retrieve the FBAppEventsUtility.shouldAccessAdvertisingID
     // before we make this call.
@@ -215,7 +216,7 @@ static BOOL _isConfigured = NO;
                                                  shouldAccessAdvertisingID:YES
                                                                     userID:self.userIDProvider.userID
                                                                   userData:[self.userDataStore getUserData]];
-
+    
     id<FBSDKGraphRequest> deferredAppLinkRequest = [self.graphRequestFactory createGraphRequestWithGraphPath:[NSString stringWithFormat:@"%@/activities", self.settings.appID, nil]
                                                                                                   parameters:deferredAppLinkParameters
                                                                                                  tokenString:nil
@@ -224,30 +225,30 @@ static BOOL _isConfigured = NO;
     [deferredAppLinkRequest startWithCompletion:^(id<FBSDKGraphRequestConnecting> connection,
                                                   id result,
                                                   NSError *error) {
-                                                    NSURL *applinkURL = nil;
-                                                    if (!error) {
-                                                      NSString *appLinkString = result[@"applink_url"];
-                                                      if (appLinkString) {
-                                                        applinkURL = [NSURL URLWithString:appLinkString];
-
-                                                        NSString *createTimeUtc = result[@"click_time"];
-                                                        if (createTimeUtc) {
-                                                          // append/translate the create_time_utc so it can be used by clients
-                                                          NSString *modifiedURLString = [applinkURL.absoluteString
-                                                                                         stringByAppendingFormat:@"%@fb_click_time_utc=%@",
-                                                                                         (applinkURL.query) ? @"&" : @"?",
-                                                                                         createTimeUtc];
-                                                          applinkURL = [NSURL URLWithString:modifiedURLString];
-                                                        }
-                                                      }
-                                                    }
-
-                                                    if (handler) {
-                                                      dispatch_async(dispatch_get_main_queue(), ^{
-                                                        handler(applinkURL, error);
-                                                      });
-                                                    }
-                                                  }];
+      NSURL *applinkURL = nil;
+      if (!error) {
+        NSString *appLinkString = result[@"applink_url"];
+        if (appLinkString) {
+          applinkURL = [NSURL URLWithString:appLinkString];
+          
+          NSString *createTimeUtc = result[@"click_time"];
+          if (createTimeUtc) {
+            // append/translate the create_time_utc so it can be used by clients
+            NSString *modifiedURLString = [applinkURL.absoluteString
+                                           stringByAppendingFormat:@"%@fb_click_time_utc=%@",
+                                           (applinkURL.query) ? @"&" : @"?",
+                                           createTimeUtc];
+            applinkURL = [NSURL URLWithString:modifiedURLString];
+          }
+        }
+      }
+      
+      if (handler) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          handler(applinkURL, error);
+        });
+      }
+    }];
   }];
 }
 
@@ -258,7 +259,7 @@ static BOOL _isConfigured = NO;
   NSDictionary<NSString *, id> *extras = parsedUrl.appLinkExtras;
   if (extras) {
     NSString *deeplinkContextString = extras[@"deeplink_context"];
-
+    
     // Parse deeplinkContext and extract promo code
     if ([deeplinkContextString isKindOfClass:NSString.class] && deeplinkContextString.length > 0) {
       NSError *error = nil;
@@ -268,7 +269,7 @@ static BOOL _isConfigured = NO;
       }
     }
   }
-
+  
   return nil;
 }
 
